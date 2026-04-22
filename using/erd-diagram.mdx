@@ -17,7 +17,7 @@ The ERD panel displays **table cards** — one card per CREATE TABLE block curre
   - **Constraint badges** inline next to the column name:
 
 | Badge | Meaning |
-|---|---|
+| --- | --- |
 | `PK` | Primary key (shown via key icon) |
 | `NN` | NOT NULL constraint |
 | `UQ` | UNIQUE constraint |
@@ -93,10 +93,11 @@ CREATE TABLE pedidos (
 ```
 
 The ERD panel renders:
+
 - A **clientes** card with columns `id (PK)`, `nombre`, `ciudad`.
 - A **pedidos** card with columns `id (PK)`, `clienteId (FK→clientes)`, `total (NN)`.
 - A **relationship arrow** from `pedidos` to `clientes` labeled `clienteId → id`.
 
-<Info>
-  The ERD uses the Mermaid library rendered client-side. If the generated Mermaid syntax contains an error (for example due to an unusual table name), a collapsible debug section appears in the panel showing the raw Mermaid code so you can identify the issue.
-</Info>
+<Callout icon="pencil">
+  The ERD uses the Cythoscape library rendered client-side. If the generated syntax contains an error (for example due to an unusual table name), a collapsible debug section appears in the panel showing the raw code so you can identify the issue.
+</Callout>
