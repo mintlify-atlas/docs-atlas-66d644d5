@@ -1,0 +1,228 @@
+---
+title: "DDL blocks: CREATE TABLE, columns, and constraints"
+description: "Reference for SQLa's DDL blocks: CREATE TABLE, column definitions, primary keys, and column-level constraints including IDENTITY, UNIQUE, CHECK, and REFERENCES."
+---
+
+Data Definition Language (DDL) blocks let you design database schemas visually. Drag and connect these blocks to generate `CREATE TABLE` statements with typed columns and constraints — no manual SQL syntax required.
+
+## Overview
+
+DDL blocks in SQLa are color-coded to distinguish them from DML query blocks: the CREATE TABLE and column blocks use blue (hue 230), while column constraint blocks use teal (hue 160). They connect together using the `ColumnDefinition` and `ColumnConstraint` connection types, which enforce valid block combinations at the UI level.
+
+<AccordionGroup>
+
+<Accordion title="CREATE TABLE block (sql_create_table)">
+
+The root DDL block. It carries the table name and a statement input labeled **COLUMNAS** that accepts a vertical stack of column definition blocks.
+
+**Fields:**
+- `TABLE_NAME` — text input, defaults to `mi_tabla`
+
+**Connections:**
+- `previousStatement` / `nextStatement`: `SQL_STATEMENT` — chains with other top-level SQL statements
+- `COLUMNS` statement input: accepts blocks of type `ColumnDefinition`
+
+**How the generator works:** It iterates the connected column chain, calls each column block's own generator, and formats lines comma-separated inside parentheses.
+
+```sql
+-- Minimal CREATE TABLE
+CREATE TABLE empleados (
+  id INTEGER NOT NULL PRIMARY KEY,
+  nombre VARCHAR,
+  salario FLOAT
+);
+```
+
+<Steps>
+  <Step title="Drag CREATE TABLE onto the canvas">
+    Find it in the DDL section of the toolbox and drop it anywhere on the workspace.
+  </Step>
+  <Step title="Set the table name">
+    Click the `mi_tabla` text field inside the block and type your table name.
+  </Step>
+  <Step title="Add column blocks">
+    Drag Column Definition or Primary Key column blocks into the **COLUMNAS** slot. Stack them vertically — each one becomes a line in the final SQL.
+  </Step>
+</Steps>
+
+</Accordion>
+
+<Accordion title="Column Definition block (sql_column_definition)">
+
+Defines one column with a name, a data type, and an optional chain of constraint blocks attached to its right side.
+
+**Fields:**
+- `COLUMN_NAME` — text input, defaults to `id`
+- `DATA_TYPE` — dropdown with: `INTEGER`, `FLOAT`, `VARCHAR`, `CHAR`, `BOOL`, `DATE`, `DATETIME`
+
+**Connections:**
+- `previousStatement` / `nextStatement`: `ColumnDefinition` — stacks inside CREATE TABLE
+- `FIRST_CONSTRAINT` value input (right side): accepts `ColumnConstraint` blocks
+
+**Context menu:** Right-click the block to convert it to a Primary Key column block.
+
+```sql
+-- Column with no constraints
+nombre VARCHAR
+
+-- Column with NOT NULL and UNIQUE constraints
+email VARCHAR NOT NULL UNIQUE
+```
+
+<Note>
+  Constraint blocks chain horizontally using the `NEXT_CONSTRAINT` input. The generator resolves the full chain recursively via `valueToCode`, so you can attach as many constraints as needed.
+</Note>
+
+</Accordion>
+
+<Accordion title="Primary Key column block (sql_column_primary_key)">
+
+A specialized column block that bakes in `NOT NULL PRIMARY KEY` directly — no separate constraint blocks needed. Only one primary key column should exist per table.
+
+**Fields:**
+- `COLUMN_NAME` — text input, defaults to `id`
+- `DATA_TYPE` — same dropdown as Column Definition: `INTEGER`, `FLOAT`, `VARCHAR`, `CHAR`, `BOOL`, `DATE`, `DATETIME`
+
+**Connections:**
+- `previousStatement` / `nextStatement`: `ColumnDefinition`
+- No constraint input — `NOT NULL PRIMARY KEY` is always emitted
+
+**Context menu:** Right-click to convert back to a regular column definition block.
+
+```sql
+-- Primary key column output
+id INTEGER NOT NULL PRIMARY KEY
+```
+
+<Tip>
+  `PRIMARY KEY` implies `NOT NULL` in SQL. SQLa makes this explicit by always writing both keywords — a useful reminder when learning schema design.
+</Tip>
+
+</Accordion>
+
+<Accordion title="IDENTITY constraint block (sql_column_identity)">
+
+Adds SQL Server's `IDENTITY` auto-increment property to a column. Valid only for numeric types (`INTEGER`, `FLOAT`).
+
+**Fields:**
+- `SEED` — number input, default `1` (starting value)
+- `INCREMENT` — number input, default `1` (step size)
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+-- Column with IDENTITY auto-increment
+id INTEGER IDENTITY(1,1)
+
+-- With additional NOT NULL
+id INTEGER IDENTITY(1,1) NOT NULL
+```
+
+</Accordion>
+
+<Accordion title="NOT NULL constraint block (sql_column_not_null)">
+
+Prevents the column from accepting `NULL` values.
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+nombre VARCHAR NOT NULL
+```
+
+</Accordion>
+
+<Accordion title="UNIQUE constraint block (sql_column_unique)">
+
+Enforces that all values in the column are distinct across all rows.
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+email VARCHAR UNIQUE
+```
+
+</Accordion>
+
+<Accordion title="DEFAULT constraint block (sql_column_default)">
+
+Specifies a fallback value used when a row is inserted without supplying a value for this column.
+
+**Fields:**
+- `DEFAULT_VALUE` — text input, default `0`
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+activo BOOL DEFAULT true
+
+saldo FLOAT DEFAULT 0
+```
+
+</Accordion>
+
+<Accordion title="CHECK constraint block (sql_column_check)">
+
+Defines a boolean condition that every inserted or updated value must satisfy.
+
+**Fields:**
+- `CHECK_CONDITION` — text input, default `columna > 0`
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+precio FLOAT CHECK (precio > 0)
+
+edad INTEGER CHECK (edad >= 18)
+```
+
+</Accordion>
+
+<Accordion title="REFERENCES constraint block (sql_column_references)">
+
+Creates a foreign key reference from this column to a column in another table. The data type of this column must match the referenced column.
+
+**Fields:**
+- `REF_TABLE` — text input, default `tabla_ref`
+- `REF_COLUMN` — text input, default `id`
+
+**Connections:**
+- `output`: `ColumnConstraint`
+- `NEXT_CONSTRAINT` value input: chains to additional constraints
+
+```sql
+-- Foreign key on a single column
+departamento_id INTEGER REFERENCES departamentos(id)
+```
+
+
+
+</Accordion>
+
+</AccordionGroup>
+
+## Full example
+
+The following blocks assembled together produce the SQL shown below:
+
+```sql
+CREATE TABLE pedidos (
+  id INTEGER IDENTITY(1,1) NOT NULL PRIMARY KEY,
+  cliente_id INTEGER REFERENCES clientes(id),
+  total FLOAT NOT NULL DEFAULT 0,
+  cantidad INTEGER CHECK (cantidad > 0),
+  fecha DATE
+);
+```
+
+Each column line is generated by its own block, then the CREATE TABLE block assembles them with proper comma separation and wraps them in parentheses.

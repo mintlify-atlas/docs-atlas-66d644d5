@@ -1,0 +1,76 @@
+{
+  "projectType": "saas",
+  "projectName": "SQLa",
+  "projectDescription": "SQLa is a web application for learning SQL through visual block-based programming, allowing students to construct and execute SQL queries by dragging and connecting blocks.",
+  "theme": "almond",
+  "primaryColor": "#7A5CFF",
+  "lightColor": "#A98BFF",
+  "darkColor": "#4A2FCC",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Using SQLa",
+            "pages": [
+              "using/sessions",
+              "using/block-editor",
+              "using/running-queries",
+              "using/erd-diagram"
+            ]
+          },
+          {
+            "group": "SQL Blocks Reference",
+            "pages": [
+              "blocks/ddl-blocks",
+              "blocks/dml-select",
+              "blocks/joins-and-clauses",
+              "blocks/aggregate-functions"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Deployment",
+        "groups": [
+          {
+            "group": "Self-Hosting",
+            "pages": [
+              "deployment/architecture",
+              "deployment/database-setup",
+              "deployment/backend-setup",
+              "deployment/frontend-setup"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Visual block-based SQL editor powered by Google Blockly",
+    "Support for DDL statements (CREATE TABLE with columns, constraints, primary keys, and foreign keys)",
+    "Support for DML statements (SELECT with JOIN, WHERE, GROUP BY, HAVING, ORDER BY, DISTINCT, TOP)",
+    "Aggregate functions (SUM, AVG, COUNT, MIN, MAX) with GROUP BY and HAVING support",
+    "Isolated session-based schema per user for safe query execution against SQL Server",
+    "Real-time ERD diagram generation from CREATE TABLE blocks using Mermaid",
+    "Live SQL query execution against Microsoft SQL Server backend",
+    "SQL export to .sql file and workspace export to JSON",
+    "Query history tracking per session",
+    "Security layer blocking dangerous SQL commands (DROP DATABASE, EXEC, GRANT, etc.)"
+  ],
+  "publicApiSurface": [
+    "POST /api/sql/session — Create a new isolated session with its own SQL Server schema",
+    "GET /api/sql/session/:id — Validate and retrieve an existing session",
+    "POST /api/sql/analyze — Parse, validate, transform, and execute a SQL statement",
+    "GET /api/sql/history/:sessionId — Retrieve query history for a session",
+    "GET /api/sql/export-sql/:sessionId — Export all session queries as a .sql file"
+  ]
+}

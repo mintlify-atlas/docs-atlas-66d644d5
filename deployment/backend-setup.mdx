@@ -1,0 +1,156 @@
+---
+title: "Installing and running the SQLa backend on Node.js"
+description: "Install dependencies, configure src/.env with SQL Server credentials, and start the Express backend that powers the SQLa REST API on port 3000."
+---
+
+The SQLa backend is a Node.js/Express application that exposes a REST API, manages user sessions, and proxies SQL queries to Microsoft SQL Server. This guide walks through installing it, wiring up the database connection via environment variables, and verifying that the server is healthy before starting the frontend.
+
+## Prerequisites
+
+- Node.js 18 or later (`node --version` to check)
+- npm (bundled with Node.js)
+- A running Microsoft SQL Server instance with the `sqla_sandbox` database already created — see the [database setup guide](/deployment/database-setup)
+
+## Steps
+
+<Steps>
+  <Step title="Navigate to the backend directory">
+    From the repository root, change into the backend project folder:
+
+    ```bash
+    cd "Sqla - Proyecto de Grado/sqla-backend"
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs Express 5, mssql 12, node-sql-parser 5, uuid, cors, and dotenv.
+  </Step>
+
+  <Step title="Create the .env file">
+    The backend reads its database connection settings from `src/.env`. Create the file at that path:
+
+    ```bash
+    # src/.env
+    DB_USER=sandbox_user
+    DB_PASSWORD=your_strong_password_here
+    DB_SERVER=localhost
+    DB_DATABASE=sqla_sandbox
+    DB_PORT=1433
+
+    PORT=3000
+    ```
+
+    | Variable | Description |
+    |----------|-------------|
+    | `DB_USER` | SQL Server login name |
+    | `DB_PASSWORD` | Password for the SQL Server login |
+    | `DB_SERVER` | Hostname or IP of the SQL Server instance |
+    | `DB_DATABASE` | Name of the application database |
+    | `DB_PORT` | SQL Server TCP port (default `1433`) |
+    | `PORT` | HTTP port the Express server listens on (default `3000`) |
+
+    <Warning>
+      Never commit `src/.env` to version control. Add it to `.gitignore` before your first commit.
+    </Warning>
+  </Step>
+
+  <Step title="Start the server">
+    ```bash
+    node src/server.js
+    ```
+
+    On success you should see:
+
+    ```
+    Conexión exitosa a la base de datos y/o SQL SERVER
+    ✅ Backend corriendo en http://localhost:3000
+    ✅ También accesible desde la red local y Tailscale
+    ```
+
+    The server binds to `0.0.0.0:3000`, so it is reachable from other machines on the same network, not only from `localhost`.
+  </Step>
+
+  <Step title="Verify the server is healthy">
+    In a separate terminal (or a browser tab), send a request to the root path:
+
+    ```bash
+    curl http://localhost:3000
+    ```
+
+    Expected response:
+
+    ```json
+    { "message": "Backend SQL Sandbox funcionando" }
+    ```
+
+    If you receive this JSON, the server is running and able to parse requests. You can also confirm database connectivity by creating a test session:
+
+    ```bash
+    curl -X POST http://localhost:3000/api/sql/session
+    ```
+
+    A successful response looks like:
+
+    ```json
+    {
+      "ok": true,
+      "sessionId": "a1b2c3d4-e5f6-...",
+      "schemaName": "session_a1b2c3d4e5f6..."
+    }
+    ```
+  </Step>
+</Steps>
+
+## Connection pool settings
+
+The backend maintains a persistent connection pool to SQL Server, configured in `src/db/mssql.js`:
+
+| Setting | Value | Notes |
+|---------|-------|-------|
+| `pool.max` | 30 | Maximum concurrent connections |
+| `pool.min` | 5 | Connections kept open at idle |
+| `pool.idleTimeoutMillis` | 30000 | Idle connections closed after 30 s |
+| `options.encrypt` | false | TLS encryption disabled by default |
+| `options.trustServerCertificate` | true | Self-signed certificates accepted |
+
+<Note>
+  If your SQL Server instance requires encrypted connections (common in Azure SQL or corporate environments), set `encrypt: true` in `mssql.js` and ensure your server certificate is trusted.
+</Note>
+
+## CORS configuration
+
+The backend hard-codes `Access-Control-Allow-Origin: http://localhost:5173` in `src/app.js`. This means only a browser loading the frontend from that exact origin can call the API without a CORS error.
+
+For production, update the allowed origin to match wherever the frontend is hosted:
+
+```javascript
+// src/app.js  — change this line:
+res.header('Access-Control-Allow-Origin', 'https://sqla.yourschool.edu');
+```
+
+Restart the server after making this change.
+
+## Running with npm start
+
+The `package.json` `start` script is an alias for the same command:
+
+```bash
+npm start
+```
+
+This is equivalent to running `node src/server.js` directly and is the recommended invocation for process managers such as PM2 or systemd.
+
+## Running as a background service (optional)
+
+For long-running deployments, use PM2 to keep the backend alive across crashes and system reboots:
+
+```bash
+npm install -g pm2
+pm2 start src/server.js --name sqla-backend
+pm2 save
+pm2 startup
+```

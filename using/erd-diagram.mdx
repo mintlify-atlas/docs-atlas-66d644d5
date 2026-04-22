@@ -1,0 +1,102 @@
+---
+title: "SQLa ERD panel: live schema visualization and diagrams"
+description: "How SQLa's ERD panel renders entity-relationship diagrams from your blocks, updates after query execution, and shows columns, types, and FK relationships."
+---
+
+The ERD (Entity-Relationship Diagram) panel gives you a live visual map of the tables you are defining. As you build CREATE TABLE blocks in the workspace, the panel updates automatically so you always have a clear picture of your schema without switching views.
+
+## What the ERD panel shows
+
+The ERD panel displays **table cards** — one card per CREATE TABLE block currently in the workspace. Each card contains:
+
+- **Table name** in the card header (monospace font, bold).
+- **Column rows**, each showing:
+  - An icon indicating the column's role: a key emoji for primary keys, a link emoji for foreign keys, a diamond for unique columns, and a circle for plain columns.
+  - The **column name** in a monospace font.
+  - The **data type** right-aligned (e.g., `INT`, `VARCHAR`, `DATE`).
+  - **Constraint badges** inline next to the column name:
+
+| Badge | Meaning |
+|---|---|
+| `PK` | Primary key (shown via key icon) |
+| `NN` | NOT NULL constraint |
+| `UQ` | UNIQUE constraint |
+| `DEF` | DEFAULT value set |
+| `CHK` | CHECK condition |
+| `FK→TableName` | FOREIGN KEY referencing the named table |
+
+When foreign key relationships exist between tables, the ERD also renders **relationship lines** using Mermaid's `erDiagram` notation, connecting the referencing column to the referenced table with a crow's-foot cardinality indicator.
+
+## Live preview from CREATE TABLE blocks
+
+The ERD panel updates **in real time** as you work in the workspace. Every time you add, remove, or edit a block, a debounced timer fires after **400 milliseconds** of inactivity and re-renders the diagram. This debounce prevents the diagram from flickering on every individual block movement.
+
+The live preview reads directly from the Blockly workspace state:
+
+- It scans all blocks of type `sql_create_table` in the workspace.
+- For each table block it reads the `TABLE_NAME` field and walks the connected column blocks.
+- For each column block it reads the `COLUMN_NAME`, `DATA_TYPE`, and any chained constraint blocks (`NOT NULL`, `UNIQUE`, `DEFAULT`, `CHECK`, `REFERENCES`).
+- If a `REFERENCES` constraint is present, a relationship arrow is drawn from the current table to the referenced table.
+
+<Note>
+  The live preview is driven by the **workspace blocks**, not by the actual database state. A table that appears in the ERD from the live preview may not exist in SQL Server yet — you still need to click **Ejecutar** to create it.
+</Note>
+
+## ERD update after query execution
+
+After you click **Ejecutar** and the backend responds successfully, the ERD panel also refreshes using the **abstract syntax tree (AST)** returned by the backend. This AST-based update reflects the actual SQL that was parsed and executed, which ensures the diagram stays accurate even if the generated SQL was adjusted by the backend's query transformer.
+
+The AST update handles:
+
+- `CREATE TABLE` statements — adds the table and all its columns, constraints, and foreign keys to the diagram.
+- `SELECT` statements — registers any tables referenced in `FROM` and `JOIN` clauses as table cards (without columns, since SELECT does not define structure).
+- `INSERT`, `UPDATE`, `DELETE` statements — registers the target table in the diagram if it is not already present.
+
+When the AST update fires, the ERD panel opens automatically if it was hidden, ensuring you always see the result of a schema-changing operation.
+
+## Showing and hiding the ERD panel
+
+The ERD panel is toggled with the **ERD Diagram** button in the top toolbar (identified by the diagram icon). Clicking it alternates the panel between visible and hidden.
+
+When you hide the ERD panel, the Blockly workspace expands to fill the freed space. SQLa calls `Blockly.svgResize()` each time the panel is toggled to ensure the workspace metrics stay accurate and text fields do not cause unexpected scrolling.
+
+<Tip>
+  Hide the ERD panel when you are focused on writing DML queries (SELECT, INSERT, etc.) to give the workspace more room. Open it again whenever you add or modify a CREATE TABLE block to verify your schema structure.
+</Tip>
+
+## How foreign key relationships are drawn
+
+When a column has a `REFERENCES` constraint block attached, SQLa records the relationship between the two tables and draws a connecting line in the ERD:
+
+- **Live preview (from workspace):** uses Mermaid's `}o--||` notation, representing a many-to-one relationship from the child (referencing) table to the parent (referenced) table.
+- **Post-execution (from AST):** uses Mermaid's `||--o{` notation, drawn from the referencing table to the referenced table with the column mapping as a label (e.g., `clienteId → id`).
+
+If a referenced table is not yet defined in the workspace (for example, you are building the child table first), SQLa creates a placeholder card for it in the diagram with a single generic `string id` column. The placeholder is replaced by the real card as soon as you add the parent table's CREATE TABLE block.
+
+## Example: a two-table schema
+
+The following block configuration produces an ERD with two related tables:
+
+```sql
+-- Equivalent SQL generated by the blocks:
+CREATE TABLE clientes (
+    id     INT PRIMARY KEY,
+    nombre VARCHAR,
+    ciudad VARCHAR
+);
+
+CREATE TABLE pedidos (
+    id         INT PRIMARY KEY,
+    clienteId  INT REFERENCES clientes(id),
+    total      FLOAT NOT NULL
+);
+```
+
+The ERD panel renders:
+- A **clientes** card with columns `id (PK)`, `nombre`, `ciudad`.
+- A **pedidos** card with columns `id (PK)`, `clienteId (FK→clientes)`, `total (NN)`.
+- A **relationship arrow** from `pedidos` to `clientes` labeled `clienteId → id`.
+
+<Info>
+  The ERD uses the Mermaid library rendered client-side. If the generated Mermaid syntax contains an error (for example due to an unusual table name), a collapsible debug section appears in the panel showing the raw Mermaid code so you can identify the issue.
+</Info>

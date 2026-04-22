@@ -1,80 +1,111 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "SQLa quickstart: run your first SQL query in minutes"
+description: "Create a session, explore the pre-populated database, build a SELECT query with blocks, and run it against a live SQL Server database in minutes."
 ---
 
-## Get started in three steps
+This guide walks you through opening SQLa, creating your first session, and running a simple `SELECT` query using the block editor. By the end you will have seen blocks generate real SQL and return results from a live database.
 
-Get your documentation site running locally and make your first customization.
+<Steps>
+  <Step title="Open SQLa in your browser">
+    Navigate to the SQLa application URL provided by your instructor or administrator. You will land on the **index page** — the session management screen.
 
-### Step 1: Set up your local environment
+    <Info>
+      SQLa runs entirely in the browser. There is nothing to install.
+    </Info>
+  </Step>
 
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
+  <Step title="Create a new session">
+    On the index page, locate the **"Nueva Sesión"** tab and click it. Then click **Generar** to create your session.
 
-### Step 2: Deploy your changes
+    The application generates a unique session ID — a UUID that looks like this:
 
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    ```text
+    3f2a1b4c-8e9d-4f0a-b1c2-d3e4f5a6b7c8
+    ```
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+    This UUID is your session identifier. The backend uses it to create a private SQL Server schema (`session_3f2a1b4c8e9d4f0ab1c2d3e4f5a6b7c8`) that belongs exclusively to you.
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+    <Note>
+      Copy and save your session UUID before continuing. You will need it to resume your work in a future visit. SQLa does not require an account or password — the UUID is your only credential.
+    </Note>
 
-### Step 3: Go live
+    Click **Continuar** to confirm. The modal closes and you are taken to the block editor.
+  </Step>
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+  <Step title="Explore the pre-populated workspace">
+    The block editor opens automatically. Every new session starts with a pre-populated `usuarios` table in your schema so you can run queries immediately without creating any tables first.
 
-## Next steps
+    The `usuarios` table has this structure:
 
-Now that you have your docs running, explore these key features:
+    ```sql
+    CREATE TABLE usuarios (
+      id    INT           PRIMARY KEY IDENTITY(1,1),
+      nombre NVARCHAR(100),
+      edad  INT
+    );
+    ```
+
+    It already contains two rows:
+
+    | id | nombre | edad |
+    |----|--------|------|
+    | 1  | Ana    | 22   |
+    | 2  | Luis   | 30   |
+
+    You can confirm this by querying the table in the next steps.
+  </Step>
+
+  <Step title="Build a SELECT query with blocks">
+    In the block editor, you will find the **toolbox** panel on the left side of the screen. Follow these steps to build a `SELECT nombre FROM usuarios` query:
+
+    1. Open the **DML / SELECT** category in the toolbox.
+    2. Drag a **SELECT** block onto the canvas.
+    3. From the **Expressions** category, drag a **column name** block and type `nombre` as the column value. Connect it to the output slot of the SELECT block.
+    4. Open the **FROM** category and drag a **FROM** block onto the canvas. Type `usuarios` as the table name.
+    5. Connect the FROM block to the SELECT block — snap it into the clause slot so the two blocks form a complete statement.
+
+    The SQL preview area below the canvas should now show:
+
+    ```sql
+    SELECT nombre FROM usuarios
+    ```
+
+    <Tip>
+      Blocks only connect where they fit — the editor prevents you from attaching incompatible blocks together. If a block does not snap, check that you are connecting it to the correct slot.
+    </Tip>
+  </Step>
+
+  <Step title="Execute the query">
+    Click the **Ejecutar** button (the execute button in the toolbar). SQLa sends the generated SQL to the backend, which runs it in your session's schema and returns the results.
+
+    The output panel below the editor displays the results in a table:
+
+    | nombre |
+    |--------|
+    | Ana    |
+    | Luis   |
+
+    <Note>
+      Only the `nombre` column appears because that is the only column you selected. To see all columns, replace the column name block with a `*` (wildcard) expression block.
+    </Note>
+  </Step>
+</Steps>
+
+## What to explore next
+
+Now that you have run your first query, you can start building more complex statements and creating your own tables.
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Block editor guide" icon="cubes" href="/using/block-editor">
+    Learn how the toolbox is organized, how to delete and rearrange blocks, and how to read the generated SQL.
+  </Card>
+  <Card title="DDL blocks" icon="database" href="/blocks/ddl-blocks">
+    Create your own tables with CREATE TABLE blocks, including columns, data types, and constraints.
+  </Card>
+  <Card title="Joins and filters" icon="filter" href="/blocks/joins-and-clauses">
+    Add WHERE conditions, JOIN clauses, GROUP BY, ORDER BY, and HAVING to your queries.
+  </Card>
+  <Card title="Sessions" icon="key" href="/using/sessions">
+    Learn how to resume an existing session using your UUID and what happens when a session expires.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

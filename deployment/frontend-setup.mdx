@@ -1,0 +1,143 @@
+---
+title: "Set up and deploy the SQLa Vite frontend application"
+description: "Install Node dependencies, start the Vite dev server on port 5173, configure the backend API URL, and build a static production bundle for deployment."
+---
+
+The SQLa frontend is a Vite application that renders the Google Blockly canvas, lets students construct SQL queries visually, and displays results alongside Mermaid-powered schema diagrams. It communicates with the Express backend over HTTP and requires no server-side rendering — the entire app runs in the browser after the initial page load.
+
+## Prerequisites
+
+- Node.js 18 or later (`node --version` to check)
+- npm (bundled with Node.js)
+- The SQLa backend running and reachable at `http://localhost:3000` — see the [backend setup guide](/deployment/backend-setup)
+
+## Steps
+
+<Steps>
+  <Step title="Navigate to the frontend directory">
+    From the repository root, change into the frontend project folder:
+
+    ```bash
+    cd "Sqla - Proyecto de Grado/sqla-app"
+    ```
+  </Step>
+
+  <Step title="Install dependencies">
+    ```bash
+    npm install
+    ```
+
+    This installs Blockly 12, Mermaid 11, and Vite 7 along with their dependencies.
+  </Step>
+
+  <Step title="Start the development server">
+    ```bash
+    npm run dev
+    ```
+
+    Vite starts a local dev server with hot module replacement:
+
+    ```
+      VITE v7.x.x  ready in Xms
+
+      ➜  Local:   http://localhost:5173/
+      ➜  Network: use --host to expose
+    ```
+
+    Open [http://localhost:5173](http://localhost:5173) in your browser to use the application.
+  </Step>
+</Steps>
+
+## Backend URL configuration
+
+The frontend's API base URL is defined as a constant in `src/js/services/apiService.js`:
+
+```javascript
+const API_BASE_URL = 'http://localhost:3000/api/sql';
+```
+
+This value is hard-coded and must be updated before building for a production environment where the backend runs on a different host or port:
+
+```javascript
+// src/js/services/apiService.js
+const API_BASE_URL = 'https://api.sqla.yourschool.edu/api/sql';
+```
+
+After changing this value, rebuild the app for the change to take effect.
+
+<Warning>
+  If the frontend cannot reach the backend at the configured URL, all API calls will fail silently or throw network errors in the browser console. Always confirm the backend is healthy before debugging frontend issues.
+</Warning>
+
+## Session persistence
+
+The frontend stores the active session ID and schema name in `localStorage` under the keys `sqlSessionId` and `sqlSchema`. This means a user's session survives a page refresh — the app re-loads the existing session from the backend instead of creating a new one on every visit.
+
+To start a completely fresh session, clear `localStorage` in the browser's developer tools or use the session management controls within the app itself.
+
+## Building for production
+
+<Steps>
+  <Step title="Update the backend URL">
+    Edit `src/js/services/apiService.js` and set `API_BASE_URL` to your production backend URL (see above).
+  </Step>
+
+  <Step title="Run the production build">
+    ```bash
+    npm run build
+    ```
+
+    Vite bundles and minifies the application into the `dist/` directory. The output is a set of static HTML, CSS, and JavaScript files with no server-side dependencies.
+  </Step>
+
+  <Step title="Preview the production build locally">
+    Before deploying to a web server, preview the production build locally to catch any build-time issues:
+
+    ```bash
+    npm run preview
+    ```
+
+    Vite serves the `dist/` folder on a local port (typically 4173). Verify the app loads and can communicate with the backend before proceeding.
+  </Step>
+
+  <Step title="Deploy the dist/ folder">
+    Copy the contents of `dist/` to any static file host — a web server like Nginx or Apache, a CDN, or a platform like Netlify or GitHub Pages:
+
+    ```bash
+    # Example: copy to an Nginx web root
+    cp -r dist/* /var/www/html/sqla/
+    ```
+
+    Because the app is purely static, no Node.js runtime is required on the hosting server.
+  </Step>
+</Steps>
+
+## Nginx configuration example
+
+If you serve the production build behind Nginx, use a configuration like the following to handle client-side navigation correctly:
+
+```nginx
+server {
+    listen 80;
+    server_name sqla.yourschool.edu;
+
+    root /var/www/html/sqla;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+```
+
+<Tip>
+  Remember to also update the backend's CORS `Access-Control-Allow-Origin` header to match your production frontend domain. See the [backend setup guide](/deployment/backend-setup) for instructions.
+</Tip>
+
+## Summary
+
+| Command | What it does |
+|---------|-------------|
+| `npm run dev` | Starts Vite dev server at `http://localhost:5173` with HMR |
+| `npm run build` | Produces an optimized static bundle in `dist/` |
+| `npm run preview` | Serves the `dist/` folder locally for pre-deployment testing |

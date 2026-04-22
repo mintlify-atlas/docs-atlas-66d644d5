@@ -1,0 +1,133 @@
+---
+title: "Configure SQL Server as the SQLa sandbox database"
+description: "Create the sqla_sandbox database, provision the sessions tracking table, and configure a least-privilege SQL Server login before running the SQLa backend."
+---
+
+SQLa stores all user session metadata and executes student queries inside a single Microsoft SQL Server database called `sqla_sandbox`. Before starting the backend, you need a running SQL Server instance, a dedicated database, the `sessions` tracking table, and a login that has enough permission to create schemas and tables on the fly.
+
+## Requirements
+
+- Microsoft SQL Server 2017 or later (Express edition is sufficient for small deployments)
+- SQL Server TCP/IP protocol enabled on port 1433
+- A SQL Server login that can authenticate via SQL Server Authentication (not Windows-only)
+- SQL Server Management Studio (SSMS) or `sqlcmd` to run the setup scripts
+
+<Tip>
+  SQL Server Express is free and works well for classroom or single-server deployments. Download it from the Microsoft website and enable the TCP/IP protocol in SQL Server Configuration Manager after installation.
+</Tip>
+
+## Step 1 — Create the database
+
+Connect to your SQL Server instance as a sysadmin and run:
+
+```sql
+CREATE DATABASE sqla_sandbox;
+GO
+```
+
+## Step 2 — Create the sessions table
+
+The `sessions` table is the only table that must exist before the backend starts. The backend inserts one row per session and updates `last_used_at` on every query.
+
+```sql
+USE sqla_sandbox;
+GO
+
+CREATE TABLE dbo.sessions (
+    id           NVARCHAR(36)  NOT NULL PRIMARY KEY,  -- UUID v4, e.g. 'a1b2c3d4-e5f6-...'
+    schema_name  NVARCHAR(128) NOT NULL,               -- e.g. 'session_a1b2c3d4e5f6...'
+    last_used_at DATETIME      NULL                    -- updated on each query
+);
+GO
+```
+
+<Note>
+  The `id` column stores the raw UUID string including dashes (36 characters). The `schema_name` column stores the same UUID with dashes removed and prefixed with `session_`, which is used as the SQL Server schema name for that user's tables.
+</Note>
+
+## Step 3 — Create the login and database user
+
+Create a SQL Server login and a corresponding database user, then grant only the permissions the backend requires.
+
+```sql
+-- Create the server-level login
+CREATE LOGIN sandbox_user
+    WITH PASSWORD = 'PasswordSuperSeguro123!';
+GO
+
+-- Switch to the application database
+USE sqla_sandbox;
+GO
+
+-- Create the database user mapped to the login
+CREATE USER sandbox_user FOR LOGIN sandbox_user;
+GO
+
+-- Grant permissions required by the backend
+GRANT CREATE SCHEMA   TO sandbox_user;
+GRANT CREATE TABLE    TO sandbox_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON dbo.sessions TO sandbox_user;
+GO
+```
+
+<Warning>
+  Change the password in the example above to a strong, unique value before deploying. The example password is taken from the development `.env` file and should never be used in any shared or internet-facing environment.
+</Warning>
+
+After each session schema is created, the backend immediately creates tables inside it. Because `sandbox_user` owns those schemas (it issued `CREATE SCHEMA`), it automatically has full rights on any objects within them. No additional `GRANT` statements are needed for per-session tables.
+
+## Step 4 — Verify the setup
+
+Run the following query to confirm the database, table, and user exist:
+
+```sql
+USE sqla_sandbox;
+GO
+
+-- Confirm the sessions table
+SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+WHERE TABLE_NAME = 'sessions';
+
+-- Confirm the user
+SELECT name, type_desc FROM sys.database_principals
+WHERE name = 'sandbox_user';
+GO
+```
+
+Both queries should return one row each.
+
+## Schema lifecycle and cleanup
+
+Every time a user opens a new session, the backend creates a permanent schema:
+
+```
+session_a1b2c3d4e5f64a1b8b3e2f1c9d0e7f3a  (example)
+```
+
+These schemas are never automatically deleted. Over time, a busy deployment will accumulate many schemas. To clean up stale sessions you can identify old entries in the `sessions` table and drop their schemas:
+
+```sql
+USE sqla_sandbox;
+GO
+
+-- Find sessions not used in the last 7 days
+SELECT id, schema_name, last_used_at
+FROM dbo.sessions
+WHERE last_used_at < DATEADD(DAY, -7, GETDATE())
+   OR last_used_at IS NULL;
+GO
+```
+
+To drop a stale schema (repeat for each row returned above, substituting the actual `schema_name`):
+
+```sql
+-- Drop all tables within the schema first, then drop the schema
+DROP TABLE session_a1b2c3d4e5f64a1b8b3e2f1c9d0e7f3a.usuarios;
+DROP SCHEMA session_a1b2c3d4e5f64a1b8b3e2f1c9d0e7f3a;
+DELETE FROM dbo.sessions WHERE schema_name = 'session_a1b2c3d4e5f64a1b8b3e2f1c9d0e7f3a';
+GO
+```
+
+<Tip>
+  For automated cleanup, consider a SQL Server Agent job that runs the above logic on a nightly schedule, targeting sessions older than a configurable threshold.
+</Tip>

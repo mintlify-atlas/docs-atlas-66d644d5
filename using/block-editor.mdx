@@ -1,0 +1,122 @@
+---
+title: "SQLa block editor: toolbox, workspace, and output panels"
+description: "A complete tour of the SQLa block editor: toolbox layout, DDL and DML block categories, workspace navigation controls, and the SQL and ERD output panels."
+---
+
+The block editor is the main working area of SQLa. Instead of typing raw SQL you assemble visual blocks that snap together like puzzle pieces, and the application translates them into valid T-SQL in real time. This page explains every part of the interface so you can navigate it confidently.
+
+## Editor layout
+
+The editor is divided into three horizontal regions:
+
+| Region | Description |
+|---|---|
+| **Toolbox** (left panel) | A categorized palette of all available SQL blocks. |
+| **Workspace** (center) | The canvas where you drag, connect, and arrange blocks. |
+| **Output panels** (right/bottom) | The SQL output panel and the ERD diagram panel, toggled with the toolbar buttons. |
+
+A top toolbar contains the **Ejecutar** (Execute) button, export options, and panel toggle buttons.
+
+## The toolbox: DDL and DML blocks
+
+The toolbox on the left is organized into two top-level categories:
+
+### Sentencias DDL
+
+DDL (Data Definition Language) blocks are colored **blue (hue 230)**. They let you define database structure:
+
+- **CREATE TABLE** — the root block for defining a new table. Attach column blocks inside it.
+- **Column definition** — defines a regular column with a name, data type, and optional constraints.
+- **Primary key column** — a special column block that marks the column as the primary key.
+- **Column constraints** — chainable constraint blocks that attach to column definitions:
+  - `NOT NULL` — prevents null values.
+  - `UNIQUE` — enforces uniqueness.
+  - `DEFAULT` — sets a default value.
+  - `CHECK` — adds a check condition expression.
+  - `REFERENCES` — adds a foreign key reference to another table.
+  - `IDENTITY` — configures auto-increment behavior.
+
+### Sentencias DML
+
+DML (Data Manipulation Language) blocks are colored **teal (hue 160)**. They let you query and modify data:
+
+- **SELECT** — the core query block. Attach expression blocks to define columns.
+- **FROM** / **FROM (simple)** — specifies the source table. The full FROM block supports JOINs.
+- **JOIN** — adds INNER, LEFT, RIGHT, or FULL OUTER joins to a FROM block.
+- **WHERE** — filters rows using comparison and logical expressions.
+- **GROUP BY** / **GROUP BY column** — groups rows for aggregate functions.
+- **HAVING** — filters groups after aggregation.
+- **ORDER BY** — sorts the result set.
+- **Expression** — represents a column reference or value in SELECT, WHERE, and other clauses.
+- **DISTINCT** — removes duplicate rows from SELECT results.
+- **TOP** — limits the number of rows returned.
+- **Comparison** — equality and inequality conditions (`=`, `<>`, `<`, `>`, etc.).
+- **Quantified comparison** — `ANY` / `ALL` subquery comparisons.
+- **Membership** — `IN` / `NOT IN` conditions.
+- **Aggregate functions** — `SUM`, `AVG`, `COUNT`, `MIN`, `MAX` (standard and HAVING variants).
+
+## Dragging blocks into the workspace
+
+<Steps>
+  <Step title="Open a category">
+    Click a category name in the toolbox (e.g., **Sentencias DDL**). A flyout panel opens showing all blocks in that category. The flyout stays open while you work — it does not close automatically.
+  </Step>
+  <Step title="Drag the block">
+    Click and hold on a block in the flyout, then drag it onto the workspace canvas and release. The block appears on the canvas.
+  </Step>
+  <Step title="Connect blocks">
+    Drag a child block (such as a Column definition) close to a compatible connection point on a parent block (such as CREATE TABLE's column slot). When the blocks are compatible, a yellow highlight or snap indicator appears. Release to connect them.
+  </Step>
+</Steps>
+
+<Note>
+  Connection points are shaped so that only compatible block types can snap together. For example, column constraint blocks only connect to column definition blocks, not directly to CREATE TABLE.
+</Note>
+
+## Connecting and chaining blocks
+
+Most blocks have one or more **input slots** (sockets that accept child blocks) and **output connectors** (plugs that fit into parent slots). The two main connection types in SQLa are:
+
+- **Statement connections** — blocks stack vertically. For example, multiple column definitions stack beneath a CREATE TABLE block.
+- **Value connections** — blocks plug into named input sockets. For example, a WHERE block plugs into the query slot of a SELECT block.
+
+Constraint blocks use a **lateral chain**: each constraint has a `NEXT_CONSTRAINT` socket, allowing you to attach a chain of `NOT NULL → UNIQUE → DEFAULT` to a single column without cluttering the vertical stack.
+
+## Deleting blocks
+
+There are two ways to remove a block from the workspace:
+
+- **Drag to the trashcan** — drag the block to the trashcan icon in the bottom-right corner of the workspace. When the block is over the trashcan it turns red; release to delete.
+- **Right-click context menu** — right-click any block to open the Blockly context menu, then select **Delete block** (or **Delete X blocks** if it has children).
+
+Deleted blocks are placed in the trashcan and can be restored by clicking the trashcan to open its contents.
+
+## Workspace navigation controls
+
+| Control | Action |
+|---|---|
+| **Scroll wheel** | Zoom in and out on the workspace. |
+| **Click and drag** on empty space | Pan the workspace canvas. |
+| **Zoom controls** (+ / - / reset) | Three buttons in the corner of the workspace for stepping zoom in, out, and back to 1×. |
+| **Ctrl + Z** | Undo the last action. |
+| **Ctrl + Y** | Redo. |
+
+The workspace supports a minimum scale of **0.3×** and a maximum of **3×**, with a zoom speed multiplier of 1.2 per step.
+
+## The SQL output panel
+
+The SQL output panel displays the raw T-SQL that the block workspace generates. It updates automatically every time you add, remove, or edit a block, giving you a live preview of the SQL your blocks represent.
+
+To show or hide the panel, click the **SQL Output** toggle button in the top toolbar. After running a query, the panel switches to display the execution result (rows or rows-affected count) instead of the static preview.
+
+## The ERD diagram panel
+
+The ERD (Entity-Relationship Diagram) panel provides a visual representation of the tables currently defined in the workspace. It updates automatically with a **400 ms debounce** as you add or modify CREATE TABLE blocks, so you see your schema take shape in real time without flickering on every keystroke.
+
+After executing a CREATE TABLE query, the ERD also refreshes using the abstract syntax tree (AST) returned by the backend, ensuring the diagram always reflects the actual state of your database schema.
+
+To show or hide the ERD panel, click the **ERD Diagram** toggle button in the toolbar.
+
+<Tip>
+  Keep the ERD panel open while building a multi-table schema. Watching foreign key connections appear as you attach REFERENCES constraint blocks gives instant feedback that your relationships are wired correctly.
+</Tip>

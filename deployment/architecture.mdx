@@ -1,0 +1,86 @@
+---
+title: "SQLa architecture: frontend, backend, and database"
+description: "Learn how SQLa's three-tier architecture connects a Vite frontend, Express backend, and SQL Server to deliver isolated SQL sandboxes per user."
+---
+
+SQLa is built as a classic three-tier web application. The Vite-powered frontend handles all user interaction — rendering the Blockly canvas and sending SQL to the server — while a Node.js/Express backend manages session state and executes queries against a Microsoft SQL Server database. Each of the three layers can be deployed independently on the same machine or across separate hosts.
+
+## Component overview
+
+| Layer | Technology | Default port |
+|-------|-----------|-------------|
+| Frontend | Vite 7, Blockly 12, Mermaid 11 | 5173 (dev) |
+| Backend | Node.js, Express 5, mssql 12, node-sql-parser 5 | 3000 |
+| Database | Microsoft SQL Server | 1433 |
+
+## Request flow
+
+```
+Browser (http://localhost:5173)
+        │
+        │  HTTP fetch (JSON)
+        ▼
+Express backend (http://localhost:3000)
+        │
+        │  mssql connection pool (TCP 1433)
+        ▼
+SQL Server database (sqla_sandbox)
+```
+
+When a user opens the app in their browser, the frontend calls the backend REST API at `http://localhost:3000/api/sql`. The backend validates the request, executes the appropriate T-SQL against SQL Server through a shared connection pool, and returns results as JSON. The frontend then renders the result set and any diagram output.
+
+## Session isolation model
+
+SQLa uses a **schema-per-session** approach to keep each user's tables completely separate inside a single SQL Server database.
+
+When a new session is created:
+
+1. A UUID v4 is generated (e.g. `a1b2c3d4-e5f6-...`).
+2. A dedicated schema is created: `CREATE SCHEMA session_a1b2c3d4e5f6...` (dashes removed).
+3. A default `usuarios` table is provisioned inside that schema with sample data.
+4. A row is written to the shared `sessions` table recording the session ID, schema name, and creation timestamp.
+
+All subsequent queries from that session execute within its private schema, so two users can create a table named `productos` simultaneously without any conflict.
+
+<Note>
+  Sessions accumulate over time. Each session creates a permanent schema in the database. Plan for periodic cleanup of stale schemas, especially in shared or demonstration deployments.
+</Note>
+
+## API endpoints
+
+All routes are mounted under the `/api/sql` prefix.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/sql/session` | Create a new session; returns `sessionId` and `schemaName` |
+| `GET` | `/api/sql/session/:id` | Look up an existing session by UUID |
+| `POST` | `/api/sql/analyze` | Parse and execute a SQL statement within a session |
+| `GET` | `/api/sql/history/:sessionId` | Retrieve the query history for a session |
+| `GET` | `/api/sql/export-sql/:sessionId` | Export all SQL executed in a session as plain text |
+
+The root path `GET /` is also handled and returns `{ "message": "Backend SQL Sandbox funcionando" }` — useful as a health check.
+
+## Tech stack details
+
+### Frontend
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Vite | ^7.1.7 | Build tool and dev server |
+| Blockly | ^12.3.1 | Visual block-based SQL editor |
+| Mermaid | ^11.12.1 | Schema diagram rendering |
+
+### Backend
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| Express | ^5.2.1 | HTTP server and routing |
+| mssql | ^12.2.0 | SQL Server client with connection pooling |
+| node-sql-parser | ^5.4.0 | Server-side SQL validation and parsing |
+| uuid | ^13.0.0 | Session ID generation (UUID v4) |
+| dotenv | ^17.3.1 | Environment variable loading |
+| cors | ^2.8.6 | Listed as dependency; CORS is also set manually |
+
+## CORS configuration
+
+The backend sets `Access-Control-Allow-Origin: http://localhost:5173` manually on every response. This means the frontend must be served from exactly that origin during development. For production deployments, this value must be updated to match the public frontend URL — see the [backend setup guide](/deployment/backend-setup) for details.

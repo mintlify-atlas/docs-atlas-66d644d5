@@ -1,0 +1,93 @@
+---
+title: "How SQLa sessions work: create, resume, and manage"
+description: "SQLa sessions give each user a private SQL Server schema identified by a UUID. Learn to create a session, resume an existing one, and keep your UUID safe."
+---
+
+Every time you use SQLa you work inside a **session** — an isolated environment that holds all the tables and data you create. Understanding sessions is the first step to getting the most out of the platform.
+
+## What is a session?
+
+A session is a combination of two things:
+
+- **A UUID** — a universally unique identifier such as `550e8400-e29b-41d4-a716-446655440000` that serves as the session's permanent name.
+- **An isolated SQL Server schema** — a dedicated database schema named `session_` followed by the UUID with dashes removed (e.g., `session_550e8400e29b41d4a716446655440000`). Every table you create lives inside this schema, completely separate from every other user's data.
+
+Because each session has its own schema, you can create, alter, and drop tables freely without affecting anyone else's work.
+
+## Starting a new session
+
+When you open SQLa for the first time you will see the landing page with a **Comenzar** button. Clicking it opens the session management modal.
+
+<Steps>
+  <Step title="Open the session modal">
+    Click **Comenzar** on the landing page. The "Gestión de Sesión" modal appears with two tabs: **Sesión Existente** and **Nueva Sesión**.
+  </Step>
+  <Step title="Switch to the Nueva Sesión tab">
+    Click the **Nueva Sesión** tab. The application automatically calls the backend to create a fresh session as soon as the tab opens.
+  </Step>
+  <Step title="Generate the session">
+    If the UUID preview still shows a dash (`—`), click the **Generar** button. The backend creates a new SQL Server schema and returns the UUID, which appears in the preview field. A green confirmation banner confirms the schema name.
+  </Step>
+  <Step title="Enter the editor">
+    Click **Continuar**. The modal closes and you are redirected to the block editor (`/app.html`).
+  </Step>
+</Steps>
+
+<Note>
+  The UUID is generated server-side using `uuidv4()` and is immediately stored in your browser's `localStorage` under the key `sqlSessionId`. The corresponding schema name is stored under `sqlSchema`.
+</Note>
+
+## Resuming an existing session
+
+If you have used SQLa before and saved your UUID, you can return to the same tables and query history.
+
+<Steps>
+  <Step title="Open the session modal">
+    Click **Comenzar** on the landing page.
+  </Step>
+  <Step title="Stay on the Sesión Existente tab">
+    The **Sesión Existente** tab is active by default. If your browser still has the UUID stored from a previous visit, it will already be pre-filled in the input box.
+  </Step>
+  <Step title="Enter your UUID">
+    Paste or type your session UUID into the **UUID de Sesión** field. The expected format is `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`.
+  </Step>
+  <Step title="Continue">
+    Click **Continuar**. SQLa validates the UUID against the database. If found, you are taken directly to the block editor where your previous tables are available in the schema.
+  </Step>
+</Steps>
+
+## The default "usuarios" table
+
+Every new session starts with a ready-to-use table so you can practise queries immediately without having to build your own schema first.
+
+```sql
+CREATE TABLE session_<uuid>.usuarios (
+    id    INT PRIMARY KEY IDENTITY(1,1),
+    nombre NVARCHAR(100),
+    edad   INT
+);
+
+INSERT INTO session_<uuid>.usuarios (nombre, edad)
+VALUES ('Ana', 22), ('Luis', 30);
+```
+
+The table contains two rows — Ana (age 22) and Luis (age 30) — giving you something to `SELECT` from the moment you enter the editor.
+
+## How the session UUID is persisted
+
+SQLa saves two values to `localStorage` in your browser:
+
+| Key | Value |
+|---|---|
+| `sqlSessionId` | The UUID string, e.g. `550e8400-e29b-41d4-a716-446655440000` |
+| `sqlSchema` | The schema name, e.g. `session_550e8400e29b41d4a716446655440000` |
+
+The next time you open the landing page, the stored UUID is pre-populated in the "Sesión Existente" field automatically, so you can continue where you left off with a single click.
+
+<Warning>
+  If you clear your browser storage, use a different browser, or switch devices, the UUID will **not** be remembered automatically. You must enter it manually. If you no longer have the UUID, there is no way to recover access to that session's tables.
+</Warning>
+
+<Tip>
+  Copy your session UUID and save it somewhere safe — a note, a password manager, or a text file — immediately after generating it. Treat it like a password for your workspace.
+</Tip>

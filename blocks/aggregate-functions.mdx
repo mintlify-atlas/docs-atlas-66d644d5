@@ -1,0 +1,322 @@
+---
+title: "Aggregate function blocks: SUM, AVG, COUNT, MIN, MAX"
+description: "Reference for SQLa's aggregate function blocks — SUM, AVG, COUNT, MIN, MAX — including their HAVING variants, DISTINCT support, and chaining behavior."
+---
+
+Aggregate function blocks compute summary values over groups of rows. In SQLa, each SQL aggregate function has two block variants: a standard version for the SELECT column list, and a `_having` variant designed for use inside a HAVING condition. Both variants display in green (hue 120).
+
+## How aggregates work in SQLa
+
+Aggregate blocks connect into the `EXPR0` input of a SELECT block, in place of or alongside Expression blocks. When an aggregate block is detected in the expression chain, the SELECT block automatically removes any DISTINCT or TOP modifier flags — these are incompatible with aggregate queries.
+
+The standard aggregate blocks include a `NEXT` value input for chaining multiple aggregates with automatic comma separation. The `_having` variants are "closed" blocks with no `NEXT` input — they plug directly into a Comparison block inside a HAVING clause.
+
+<Note>
+  SUM, AVG, and COUNT support an optional `DISTINCT` modifier, accessible via right-click on the aggregate block. MIN and MAX do not support DISTINCT.
+</Note>
+
+<AccordionGroup>
+
+<Accordion title="SUM block (sql_sum)">
+
+Computes the total sum of a numeric column across all rows in a group.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+- `DISTINCT` — label field, hidden by default; revealed via the context menu to emit `DISTINCT` inside the function
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+- `NEXT` value input: accepts `Expression`, `Column`, `Aggregate` — chains additional SELECT columns
+
+**Generator output:**
+
+```sql
+-- Basic SUM
+SUM(salario)
+
+-- SUM with DISTINCT
+SUM(DISTINCT salario)
+
+-- SUM chained with another aggregate
+SUM(salario), COUNT(id)
+```
+
+</Accordion>
+
+<Accordion title="SUM HAVING block (sql_sum_having)">
+
+A closed variant of SUM intended for use inside a HAVING clause's condition. Has no `NEXT` input.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+- `DISTINCT` — hidden by default; revealed via context menu
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+
+**Generator output:**
+
+```sql
+SUM(salario)
+
+SUM(DISTINCT salario)
+```
+
+**Typical usage inside HAVING:**
+
+```sql
+HAVING SUM(salario) > 100000
+```
+
+</Accordion>
+
+<Accordion title="AVG block (sql_avg)">
+
+Computes the arithmetic mean of a numeric column across all rows in a group.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+- `DISTINCT` — hidden by default; revealed via context menu
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+- `NEXT` value input: chains additional SELECT columns
+
+**Generator output:**
+
+```sql
+-- Basic AVG
+AVG(salario)
+
+-- AVG with DISTINCT
+AVG(DISTINCT salario)
+
+-- AVG chained with another expression
+AVG(salario), nombre
+```
+
+</Accordion>
+
+<Accordion title="AVG HAVING block (sql_avg_having)">
+
+A closed variant of AVG for use inside a HAVING clause.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+- `DISTINCT` — hidden by default; revealed via context menu
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+
+**Generator output:**
+
+```sql
+AVG(salario)
+```
+
+**Typical usage inside HAVING:**
+
+```sql
+HAVING AVG(salario) >= 60000
+```
+
+</Accordion>
+
+<Accordion title="COUNT block (sql_count)">
+
+Counts the number of rows or non-null values in a column. Use `*` as the column name to count all rows.
+
+**Fields:**
+- `COLUMN` — text input, default `columna` (type `*` for `COUNT(*)`)
+- `DISTINCT` — hidden by default; revealed via context menu
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+- `NEXT` value input: chains additional SELECT columns
+
+**Generator output:**
+
+```sql
+-- Count all rows
+COUNT(*)
+
+-- Count non-null values in a column
+COUNT(id)
+
+-- Count distinct values
+COUNT(DISTINCT departamento)
+
+-- Chained with SUM
+COUNT(id), SUM(salario)
+```
+
+</Accordion>
+
+<Accordion title="COUNT HAVING block (sql_count_having)">
+
+A closed variant of COUNT for use inside a HAVING clause.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+- `DISTINCT` — hidden by default; revealed via context menu
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+
+**Generator output:**
+
+```sql
+COUNT(id)
+
+COUNT(*)
+```
+
+**Typical usage inside HAVING:**
+
+```sql
+HAVING COUNT(id) > 10
+```
+
+</Accordion>
+
+<Accordion title="MIN block (sql_min)">
+
+Returns the smallest value in a column across all rows in a group. Does not support DISTINCT.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+- `NEXT` value input: chains additional SELECT columns
+
+**Generator output:**
+
+```sql
+MIN(salario)
+
+-- Chained with MAX
+MIN(salario), MAX(salario)
+```
+
+</Accordion>
+
+<Accordion title="MIN HAVING block (sql_min_having)">
+
+A closed variant of MIN for use inside a HAVING clause. Does not support DISTINCT.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+
+**Generator output:**
+
+```sql
+MIN(salario)
+```
+
+**Typical usage inside HAVING:**
+
+```sql
+HAVING MIN(salario) >= 30000
+```
+
+</Accordion>
+
+<Accordion title="MAX block (sql_max)">
+
+Returns the largest value in a column across all rows in a group. Does not support DISTINCT.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+- `NEXT` value input: chains additional SELECT columns
+
+**Generator output:**
+
+```sql
+MAX(salario)
+
+-- Chained with MIN
+MIN(salario), MAX(salario)
+```
+
+</Accordion>
+
+<Accordion title="MAX HAVING block (sql_max_having)">
+
+A closed variant of MAX for use inside a HAVING clause. Does not support DISTINCT.
+
+**Fields:**
+- `COLUMN` — text input, default `columna`
+
+**Connections:**
+- `output`: `Aggregate`, `Expression`
+
+**Generator output:**
+
+```sql
+MAX(salario)
+```
+
+**Typical usage inside HAVING:**
+
+```sql
+HAVING MAX(salario) < 200000
+```
+
+</Accordion>
+
+</AccordionGroup>
+
+## Standard vs. HAVING variant comparison
+
+| Block | Type | NEXT input | DISTINCT | Typical location |
+|---|---|---|---|---|
+| `sql_sum` | Standard | Yes | Yes | SELECT EXPR0 |
+| `sql_sum_having` | HAVING | No | Yes | Inside HAVING Comparison |
+| `sql_avg` | Standard | Yes | Yes | SELECT EXPR0 |
+| `sql_avg_having` | HAVING | No | Yes | Inside HAVING Comparison |
+| `sql_count` | Standard | Yes | Yes | SELECT EXPR0 |
+| `sql_count_having` | HAVING | No | Yes | Inside HAVING Comparison |
+| `sql_min` | Standard | Yes | No | SELECT EXPR0 |
+| `sql_min_having` | HAVING | No | No | Inside HAVING Comparison |
+| `sql_max` | Standard | Yes | No | SELECT EXPR0 |
+| `sql_max_having` | HAVING | No | No | Inside HAVING Comparison |
+
+## Full aggregate query example
+
+This example counts employees and sums salaries per department, then filters to only show departments with more than 5 employees and a total salary above 300,000, ordered by total salary descending.
+
+```sql
+SELECT
+  departamento, COUNT(id), SUM(salario)
+FROM empleados
+GROUP BY departamento
+HAVING COUNT(id) > 5
+ORDER BY salario DESC
+```
+
+<Steps>
+  <Step title="Build the SELECT column list">
+    Place a SELECT block. Drag an Expression block (`departamento`) into `EXPR0`. Chain a COUNT block via `NEXT`, then chain a SUM block via COUNT's `NEXT`. The DISTINCT and TOP flags, if present, are automatically removed.
+  </Step>
+  <Step title="Add FROM and GROUP BY">
+    Connect a FROM simple block (`empleados`) below SELECT. Then connect a GROUP BY block — it auto-inserts a groupby_column block. Set the column name to `departamento`.
+  </Step>
+  <Step title="Build the HAVING condition">
+    Connect a HAVING block. Right-click it to insert a Comparison condition. Inside the Comparison block's LEFT input, connect a `sql_count_having` block (column = `id`). Set the operator to `>` and type `5` into the RIGHT input's expression.
+  </Step>
+  <Step title="Add ORDER BY">
+    Connect an ORDER BY block. Connect an Expression block (`salario`) — the direction dropdown appears. Set it to `DESC`.
+  </Step>
+</Steps>
+
+<Tip>
+  The `_having` aggregate blocks swap automatically to and from their standard counterparts when you move them between a SELECT context and a HAVING context. This swap is handled by the `createAggregateFunctionOnChange` handler registered on each block type.
+</Tip>

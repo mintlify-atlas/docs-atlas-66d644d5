@@ -1,0 +1,135 @@
+---
+title: "Executing SQL queries and reading results in SQLa"
+description: "How to run queries in SQLa using the Execute button, read row results and error messages, view the SQL sent to SQL Server, and export session history."
+---
+
+Once you have assembled blocks in the workspace, you are ready to run them against your isolated SQL Server session. This page walks through everything that happens when you click **Ejecutar** — from how the query is sent to the backend, to how you read the results.
+
+## How the Execute button works
+
+The **Ejecutar** button (top toolbar, play icon) converts your block workspace into a SQL string and sends it to the backend for execution against your session's schema.
+
+<Steps>
+  <Step title="Build your query">
+    Add blocks to the workspace to form a complete SQL statement — for example, a SELECT block with a FROM block attached.
+  </Step>
+  <Step title="Click Ejecutar">
+    Click the **Ejecutar** button. The button disables itself and shows a spinner labeled "Ejecutando..." while the request is in flight. The output panel opens automatically and shows a "Ejecutando consulta en el servidor..." message.
+  </Step>
+  <Step title="Wait for the response">
+    The frontend sends a `POST /api/sql/analyze` request containing your `sessionId` and the generated SQL string. The backend parses, validates, transforms (adding the schema prefix), and executes the query against SQL Server.
+  </Step>
+  <Step title="Read the result">
+    When the response arrives the output panel updates to show the query result. The Execute button re-enables itself.
+  </Step>
+</Steps>
+
+<Note>
+  If the workspace contains no blocks when you click Ejecutar, the output panel shows a warning: "El workspace está vacío. Agrega bloques para generar SQL." No request is sent to the server.
+</Note>
+
+## Reading query results
+
+### Row results (SELECT queries)
+
+If your query returns rows, the output panel renders an HTML table with:
+
+- **Column headers** — one header cell per column, derived from the query result set.
+- **Data rows** — alternating row background colors for readability. `NULL` values are displayed as a dimmed `NULL` label.
+- A row count displayed next to the "Resultado de Query SQL" heading (e.g., `3 fila(s)`).
+
+### Rows affected (INSERT, UPDATE, CREATE TABLE)
+
+For statements that do not return a result set, the output panel shows a green confirmation message:
+
+```
+✅ N fila(s) afectada(s)
+```
+
+where `N` is the number of rows affected. For DDL statements like `CREATE TABLE`, this count is typically `0` but the confirmation message still appears.
+
+### Empty result sets
+
+If a SELECT query executes successfully but returns no rows, the panel shows:
+
+```
+✅ Consulta ejecutada correctamente. Sin filas de resultado.
+```
+
+## Error messages
+
+If the SQL is invalid or blocked by a security rule, the output panel displays a red error message:
+
+```
+❌ <error description>
+```
+
+Below the error message, a collapsible **"SQL que se intentó ejecutar"** section shows the exact SQL that was sent, making it easier to diagnose problems.
+
+Common causes of errors include:
+
+- Referencing a table that does not exist in your session schema.
+- SQL syntax errors (mismatched parentheses, missing keywords, etc.).
+- Attempting to use a blocked SQL operation (see [Security restrictions](#security-restrictions) below).
+
+## Viewing the transformed SQL
+
+After a successful execution, a collapsible section labeled **"Ver SQL transformado enviado al servidor"** appears at the bottom of the output panel. Expanding it shows the exact SQL that the backend executed — including the schema prefix added by the query transformer (e.g., `session_550e8400e29b41d4a716446655440000.usuarios` instead of just `usuarios`).
+
+This is useful for understanding exactly what T-SQL was run and for debugging unexpected results.
+
+## Security restrictions
+
+SQLa enforces security rules on every query before execution. The following operations are **blocked** and will return an error:
+
+| Blocked pattern | Reason |
+|---|---|
+| `DROP DATABASE` | Prevents destroying the entire database. |
+| `ALTER DATABASE` | Prevents modifying database-level settings. |
+| `TRUNCATE TABLE` | Prevented at the security layer; use DELETE instead. |
+| `xp_cmdshell` | Blocks OS command execution via SQL Server. |
+| `sp_configure` | Prevents changing server configuration. |
+| `USE <database>` | Sessions are scoped to one schema; switching databases is not allowed. |
+| `EXEC` | Blocks execution of stored procedures or dynamic SQL. |
+| `GRANT` / `REVOKE` / `DENY` | Prevents permission changes. |
+| `CREATE LOGIN` / `ALTER LOGIN` / `DROP LOGIN` | Prevents server-level account management. |
+
+In addition, **multiple statements separated by a semicolon** are blocked entirely. Each execution must be a single SQL statement. If you try to run two statements at once (e.g., `SELECT 1; SELECT 2`), the security check rejects the request with:
+
+```
+No se permiten múltiples sentencias SQL en una sola ejecución.
+```
+
+<Warning>
+  These restrictions apply to every session regardless of content. There is no way to bypass them from within the application.
+</Warning>
+
+## Exporting your session SQL
+
+The **Export SQL** button (in the export menu of the toolbar) downloads a `.sql` file containing every query you have executed in the current session.
+
+<Steps>
+  <Step title="Open the export menu">
+    Click the export icon in the top toolbar to reveal the dropdown.
+  </Step>
+  <Step title="Click Export SQL">
+    Click **Exportar SQL**. The application requests the session's query history from `GET /api/sql/export-sql/{sessionId}`.
+  </Step>
+  <Step title="Save the file">
+    The browser downloads a file named `session_<UUID>.sql` containing all executed queries in order.
+  </Step>
+</Steps>
+
+<Note>
+  If you have not executed any queries yet, the export will produce an empty file and the application shows an alert: "Aún no has ejecutado ninguna consulta o el historial está vacío."
+</Note>
+
+## Exporting the workspace as JSON
+
+The **Export JSON** button saves the current state of the Blockly workspace as a JSON file. This captures every block, its position, field values, and connections — effectively a "save file" for your workspace layout.
+
+The downloaded file is named `workspace_<UUID>.json`. You can use this file to restore your workspace in a future session (import functionality may require a manual load step).
+
+## Query history
+
+Every query you execute is automatically saved to the backend under your session ID. History persists as long as the session exists in the database, so all queries from previous visits to the same session are included in exports. The **Export SQL** feature calls `GET /api/sql/export-sql/{sessionId}` to retrieve and download the full history as a `.sql` file.

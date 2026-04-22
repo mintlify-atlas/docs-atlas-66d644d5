@@ -1,0 +1,171 @@
+---
+title: "SELECT blocks: expressions, DISTINCT, and TOP in SQLa"
+description: "Reference for SQLa's SELECT block family: the root query block, expression chaining, DISTINCT and TOP modifiers, and automatic aggregate flag removal."
+---
+
+SELECT blocks form the output column list of a SQL query. The SELECT block is the root statement from which all other query blocks hang. Expressions, modifiers, and aggregate functions all plug into it through a typed connection system that prevents invalid combinations.
+
+## Overview
+
+All SELECT-family blocks share the color hue 160 (teal). The SELECT block itself is a statement block — it has top and bottom connectors that let it chain with FROM, WHERE, GROUP BY, ORDER BY, and HAVING blocks. The content you place inside its `EXPR0` input determines the column list.
+
+<AccordionGroup>
+
+<Accordion title="SELECT block (sql_select)">
+
+The root query block. Everything in a SQL query chains below or inside this block.
+
+**Connections:**
+- `previousStatement` / `nextStatement`: `SQL_STATEMENT`
+- `EXPR0` value input: accepts `Expression`, `Column`, `Aggregate`, `DistinctFlag`, or `TopFlag`
+
+**Generator output:**
+
+If `EXPR0` is empty, generates `SELECT *`. Otherwise:
+
+```sql
+SELECT
+  column_name
+```
+
+With a chained expression list:
+
+```sql
+SELECT
+  nombre, apellido, salario
+```
+
+**Context menu:** Right-click the SELECT block to add a `DISTINCT` or `TOP` modifier block. These options appear in the context menu and automatically insert the corresponding flag block at the front of the expression chain.
+
+**Auto-removal of modifiers:** When an aggregate function block (SUM, AVG, COUNT, MIN, MAX) is detected anywhere in the connected chain, the SELECT block's `onchange` handler automatically disposes of any `DISTINCT` or `TOP` flag blocks. This prevents invalid SQL like `SELECT DISTINCT SUM(salario)`.
+
+<Warning>
+  DISTINCT and TOP flags are removed automatically when aggregate function blocks are present in the expression chain. This is enforced at the block level — you do not need to remove them manually.
+</Warning>
+
+</Accordion>
+
+<Accordion title="Expression block (sql_expression)">
+
+Represents a single column reference in the SELECT column list. Chains to additional columns through its `NEXT` value input.
+
+**Fields:**
+- `COLUMN` — text input, default `column_name`
+- `DIRECTION` — added dynamically by the `order_by_expression_extension` when the block is connected inside an ORDER BY block (values: `ASC`, `DESC`)
+
+**Connections:**
+- `output`: `Expression`, `Column`
+- `NEXT` value input: accepts `Expression`, `Column`, `Aggregate`, `DistinctExpression`, `TopExpression`
+
+**Generator behavior:** Reads the `COLUMN` field, appends `DIRECTION` if present, then recursively resolves `NEXT`. Multiple chained expression blocks produce a comma-separated list:
+
+```sql
+-- Single expression
+nombre
+
+-- Chained expressions (rendered inside SELECT)
+SELECT
+  nombre, apellido, email
+```
+
+A comma is dynamically appended to the block label when `NEXT` is connected, giving visual feedback that more columns follow.
+
+<Tip>
+  The Expression block doubles as an ORDER BY expression. When connected inside an ORDER BY block, it gains a direction dropdown (`ASC` / `DESC`) provided by the `order_by_expression_extension`.
+</Tip>
+
+</Accordion>
+
+<Accordion title="DISTINCT modifier block (sql_distinct)">
+
+Prepends `DISTINCT` to the SELECT statement, eliminating duplicate rows from the result set. Connect it as the first item in the `EXPR0` input, before any Expression or Aggregate blocks.
+
+**Connections:**
+- `output`: `DistinctFlag`
+- `NEXT` value input: accepts `TopFlag`, `Expression`, `Column`, `Aggregate`
+
+**Generator output:**
+
+```sql
+-- DISTINCT alone (no expressions connected)
+SELECT
+  DISTINCT
+
+-- DISTINCT with expressions
+SELECT
+  DISTINCT nombre, apellido
+```
+
+<Note>
+  Add DISTINCT via the SELECT block's right-click context menu rather than dragging it manually. The context menu ensures it is inserted at the correct position in the chain.
+</Note>
+
+</Accordion>
+
+<Accordion title="TOP modifier block (sql_top)">
+
+Limits the number of rows returned. Equivalent to `SELECT TOP (n)` in T-SQL (Microsoft SQL Server syntax).
+
+**Fields:**
+- `NUMBER` — number input, default `10`, minimum `1`
+
+**Connections:**
+- `output`: `TopFlag`
+- `NEXT` value input: accepts `Expression`, `Column`, `Aggregate`
+
+**Generator output:**
+
+```sql
+-- TOP with 5 rows
+SELECT
+  TOP (5) nombre, salario
+
+-- TOP with DISTINCT (DISTINCT first, then TOP)
+SELECT
+  DISTINCT TOP (10) nombre
+```
+
+<Note>
+  Add TOP via the SELECT block's right-click context menu. When DISTINCT is already present, TOP is inserted after DISTINCT in the chain, producing the correct `SELECT DISTINCT TOP (n)` order.
+</Note>
+
+</Accordion>
+
+</AccordionGroup>
+
+## Common SELECT patterns
+
+<Steps>
+  <Step title="Basic SELECT with columns">
+    Place a SELECT block on the canvas. Drag an Expression block into `EXPR0`, type the column name. Chain additional Expression blocks via the `NEXT` input for more columns.
+
+    ```sql
+    SELECT
+      id, nombre, salario
+    ```
+  </Step>
+  <Step title="SELECT DISTINCT">
+    Right-click the SELECT block and choose **Add DISTINCT**. A DISTINCT block is inserted in front of your expressions.
+
+    ```sql
+    SELECT
+      DISTINCT departamento
+    ```
+  </Step>
+  <Step title="SELECT TOP (n)">
+    Right-click the SELECT block and choose **Add TOP**. Set the number in the TOP block's number field.
+
+    ```sql
+    SELECT
+      TOP (5) nombre, salario
+    ```
+  </Step>
+  <Step title="SELECT with aggregates (flags removed automatically)">
+    Connect a SUM or COUNT block into `EXPR0`. Any DISTINCT or TOP flags already present are disposed automatically.
+
+    ```sql
+    SELECT
+      SUM(salario), COUNT(id)
+    ```
+  </Step>
+</Steps>
